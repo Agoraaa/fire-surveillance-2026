@@ -63,8 +63,8 @@ def solve_set_covering(problem: ProblemModel):
 
     node_results = []
     for i in range(node_count):
-        node_results.append([i+1, risk_reduced[i].X, problem.nodes[i].risk_status, problem.nodes[i].x_coord, problem.nodes[i].y_coord])
-    node_df = pd.DataFrame(node_results, columns=['id', 'reduced_risk', 'total_risk', 'x_coord', 'y_coord'])
+        node_results.append([i+1, risk_reduced[i].X, problem.nodes[i].risk_status, risk_values[i], problem.nodes[i].x_coord, problem.nodes[i].y_coord])
+    node_df = pd.DataFrame(node_results, columns=['id', 'reduced_risk', 'total_risk', 'value_coeff', 'x_coord', 'y_coord'])
 
     unit_results = []
     for i in range(node_count):
