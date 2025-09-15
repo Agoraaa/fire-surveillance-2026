@@ -4,6 +4,7 @@ from gurobipy import GRB
 from model import *
 import random
 import simulator
+import pandas as pd
 
 def solve_set_covering(problem: ProblemModel):
     node_count = len(problem.nodes)
@@ -73,5 +74,5 @@ def solve_set_covering(problem: ProblemModel):
     unit_df = pd.DataFrame(unit_results, columns=['unit_type', 'located_node_id', 'x_coord', 'y_coord'])
 
     with pd.ExcelWriter('results.xlsx', engine='xlsxwriter') as writer:
-        unit_results.to_excel(writer, sheet_name="Nodes", index=False)
-        node_results.to_excel(writer, sheet_name="Built_Units", index=False)
+        unit_df.to_excel(writer, sheet_name="Built_Units", index=False)
+        node_df.to_excel(writer, sheet_name="Nodes", index=False)

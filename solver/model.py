@@ -13,7 +13,7 @@ class ProblemModel:
         nodes = []
         units = []
         for index, row in node_df.iterrows():
-            node = Node(row['id'], row['x_coord'], row['y_coord'], row['height'], int(row['risk_status'] == 'risky'), row['is_buildable'], row['vision_bonus'], \
+            node = Node(row['id'], row['x_coord'], row['y_coord'], row['height'], (row['risk_status']), row['is_buildable'], row['vision_bonus'], \
             row['forest_rate'], row['fire_spread_rate'], row['is_village'])
             nodes.append(node)
         for index, row in unit_df.iterrows():
