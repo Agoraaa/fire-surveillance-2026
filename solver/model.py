@@ -33,7 +33,7 @@ class ProblemModel:
             return 1.0
         if distance > surveillance_type.max_vision:
             return 0.0
-        return (distance-surveillance_type.min_vision)/(surveillance_type.max_vision-surveillance_type.min_vision)
+        return 1 - (distance-surveillance_type.min_vision)/(surveillance_type.max_vision-surveillance_type.min_vision)
         
 
 
