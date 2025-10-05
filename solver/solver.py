@@ -5,15 +5,24 @@ from model import *
 import random
 import simulator
 import pandas as pd
+import os
+import numpy as np
 
 def solve_set_covering(problem: ProblemModel):
     node_count = len(problem.nodes)
     unit_count = len(problem.units)
     model = gp.Model('Fire_Surveillance_Model')
-    print("Calculating values thru simulation...")
-    risk_values = simulator.calculate_burn_values(problem, 1.01)
-    max_risk = max(risk_values)
-    risk_values = [r/max_risk for r in risk_values]
+    risk_values = []
+    if os.path.exists('./cachedvals'):
+        print('Reading simulationo results from cache')
+        risk_values = np.fromfile('./cachedvals')
+    else:
+        print("Calculating values thru simulation...")
+        risk_values = simulator.calculate_burn_values(problem, 1.01)
+        max_risk = max(risk_values) 
+        risk_values = [r/max_risk for r in risk_values]
+        risk_values = np.array(risk_values)
+        risk_values.tofile('./cachedvals')
 
     print('Initializing vars')
     is_assigned = model.addVars(node_count, unit_count, vtype=GRB.BINARY)
