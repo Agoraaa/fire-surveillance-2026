@@ -18,10 +18,11 @@ def solve_set_covering(problem: ProblemModel):
         risk_values = np.fromfile('./cachedvals')
     else:
         print("Calculating values thru simulation...")
-        risk_values = simulator.calculate_burn_values(problem, 1.01)
+        risk_values = simulator.calculate_burn_values(problem, 2.01, response_time=5)
         max_risk = max(risk_values) 
         risk_values = [r/max_risk for r in risk_values]
         risk_values = np.array(risk_values)
+        risk_values = risk_values**2
         risk_values.tofile('./cachedvals')
 
     print('Initializing vars')

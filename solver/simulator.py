@@ -36,10 +36,10 @@ def calculate_burn_value(start_node_id, wind_speed, wind_direction_rads, problem
 
 def calculate_burn_values(problem: ProblemModel, neighbor_cut_threshold, response_time = 10):
     neighbors = _create_nb_list(neighbor_cut_threshold, problem)
-    wind_count = 20
+    wind_count = 5
     wind_up = math.tau
     wind_step = (wind_up-0)/wind_count
-    wind_str = 35
+    wind_str = 5
     node_results = [[] for _ in range(len(problem.nodes))]
     for i in range(wind_count):
         print(f"### WIND {i} ###")
