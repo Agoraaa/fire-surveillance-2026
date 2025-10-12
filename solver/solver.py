@@ -6,6 +6,7 @@ import random
 import simulator
 import pandas as pd
 import os
+import scipy.spatial as scipy
 import numpy as np
 
 def solve_set_covering(problem: ProblemModel):
@@ -30,16 +31,24 @@ def solve_set_covering(problem: ProblemModel):
     risk_reduced = model.addVars(node_count)
 
     print('C1')
+    xys = [(problem.nodes[i].x_coord, problem.nodes[i].y_coord) for i in range(node_count)]
+    covering_rates = [[] for _ in range(node_count)]
+    quadtree = scipy.KDTree(xys)
+    for k in range(unit_count):
+        if problem.units[k].inventory == 0:
+            continue
+        print(f'| Surveillance type {k}')
+        min_range = problem.units[k].min_vision
+        max_range = problem.units[k].max_vision
+        nb_nodes = quadtree.query_pairs(max_range)
+        for i, j in nb_nodes:
+            covering_rates[i].append(problem.covering_rate(j, i, k)*is_assigned[j,k])
+            covering_rates[j].append(problem.covering_rate(i, j, k)*is_assigned[i,k])
+
     for i in range(node_count):
-        if (i % 250) == 0:
-            print(f'C1.1:{i}')
-        covering_rates = []
-        for j in range(node_count):
-            for k in range(unit_count):
-                covering_rates.append(problem.covering_rate(j, i, k)*is_assigned[j,k])
         model.addConstr(
-            risk_reduced[i] <= gp.quicksum(covering_rates)
-        )
+            risk_reduced[i] <= gp.quicksum(covering_rates[i])
+                )
     print('C2')
     
     for i in range(node_count):
@@ -64,6 +73,8 @@ def solve_set_covering(problem: ProblemModel):
         gp.quicksum([risk_values[i] * risk_reduced[i] for i in range(node_count)]),
         GRB.MAXIMIZE
     )
+
+    model.setParam('MIPGap', 0.02)
     print('Starting to solve... Good luck!')
     model.optimize()
 
