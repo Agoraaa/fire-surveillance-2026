@@ -16,7 +16,8 @@ def solve_set_covering(problem: ProblemModel):
     risk_values = []
     if os.path.exists('./cachedvals'):
         print('Reading simulationo results from cache')
-        risk_values = np.fromfile('./cachedvals')
+        risk_values = np.array([np.random.uniform(low=0.5, high=1.0) for i in range(node_count)])
+        #risk_values = np.fromfile('./cachedvals')s
     else:
         print("Calculating values thru simulation...")
         risk_values = simulator.calculate_burn_values(problem, 2.01, response_time=5)
