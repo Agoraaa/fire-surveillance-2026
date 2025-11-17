@@ -1,5 +1,6 @@
 import pandas as pd
 from typing import List
+import math
 
 class ProblemModel:
     def __init__(self, nodes, units):
@@ -52,6 +53,9 @@ class Node:
         self.is_village = is_village
         self.slope = slope
         self.ymn = ymn
+        self.slope_coeff = math.e**(0.03*self.slope)
+        self.ymn_coeff = 5.75*(math.e**(-0.13*self.ymn))
+            
     def dist_to(self, other_node):
         return ((self.x_coord - other_node.x_coord)**2 + (self.y_coord-other_node.y_coord)**2)**(1/2)
 

@@ -9,18 +9,17 @@ import os
 import scipy.spatial as scipy
 import numpy as np
 
-def solve_set_covering(problem: ProblemModel):
+def solve_set_covering(problem: ProblemModel, output_file):
     node_count = len(problem.nodes)
     unit_count = len(problem.units)
     model = gp.Model('Fire_Surveillance_Model')
     risk_values = []
     if os.path.exists('./cachedvals'):
         print('Reading simulationo results from cache')
-        risk_values = np.array([np.random.uniform(low=0.5, high=1.0) for i in range(node_count)])
-        #risk_values = np.fromfile('./cachedvals')s
+        risk_values = np.fromfile('./cachedvals')
     else:
         print("Calculating values thru simulation...")
-        risk_values = simulator.calculate_burn_values(problem, 2.01, response_time=5)
+        risk_values = simulator.calculate_burn_values(problem, 1.5, response_time=5)
         max_risk = max(risk_values) 
         risk_values = [r/max_risk for r in risk_values]
         risk_values = np.array(risk_values)
@@ -69,12 +68,28 @@ def solve_set_covering(problem: ProblemModel):
         model.addConstr(
             gp.quicksum([is_assigned[i, k] for i in range(node_count)]) <= problem.units[k].inventory
         )
+    
+    if 0:
+        print('C5')
+        minimum_stayaway_dist = 15
+        nb_nodes = quadtree.query_pairs(minimum_stayaway_dist/2)
+        nbs = [[] for i in range(node_count)]
+        for surv_type in range(unit_count):
+            for i in range(node_count):
+                nbs[i].append(is_assigned[i, surv_type])
+            for i, j in nb_nodes:
+                nbs[i].append(is_assigned[j, surv_type])
+                nbs[j].append(is_assigned[i, surv_type])
+            for clique in nbs:
+                model.addConstr(
+                    gp.quicksum(clique) <= 1
+                )
+
     print('Setting objective')
     model.setObjective(
         gp.quicksum([risk_values[i] * risk_reduced[i] for i in range(node_count)]),
         GRB.MAXIMIZE
     )
-
     model.setParam('MIPGap', 0.02)
     print('Starting to solve... Good luck!')
     model.optimize()
@@ -95,6 +110,6 @@ def solve_set_covering(problem: ProblemModel):
                 unit_results.append([problem.units[k].name, f'node_{i+1}', problem.nodes[i].x_coord, problem.nodes[i].y_coord])
     unit_df = pd.DataFrame(unit_results, columns=['unit_type', 'located_node_id', 'x_coord', 'y_coord'])
 
-    with pd.ExcelWriter('results.xlsx', engine='xlsxwriter') as writer:
+    with pd.ExcelWriter(output_file, engine='xlsxwriter') as writer:
         unit_df.to_excel(writer, sheet_name="Built_Units", index=False)
         node_df.to_excel(writer, sheet_name="Nodes", index=False)
