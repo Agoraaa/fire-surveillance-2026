@@ -2,7 +2,7 @@ from model import *
 import math
 import heapq
 from heapq import heappush, heappop
-def calculate_burn_value(start_node_id, wind_direction_rads, problem: ProblemModel, neighbor_cut_threshold, response_time = 10, neighbors = None):
+def calculate_burn_value(start_node_id, wind_direction_rads, problem: ProblemModel, neighbor_cut_threshold, response_time = 10, neighbors = None, wind_speed_kmh = 30):
     if neighbors is None:
         neighbors = _create_nb_list(neighbor_cut_threshold, problem)
     wind_speed_kmh = 30
@@ -52,7 +52,7 @@ def calculate_burn_values(problem: ProblemModel, neighbor_cut_threshold, respons
             if node_id % 1000 == 0:
                 print(f'Node {node_id}')
             node_results[node_id].append(calculate_burn_value(node_id, wind_direction, problem, 
-            neighbor_cut_threshold, response_time=10, neighbors=neighbors))
+            neighbor_cut_threshold, response_time=10, neighbors=neighbors, wind_speed_kmh=problem.wind_speed))
     res = []
     for node_id in range(len(problem.nodes)):
         res.append(

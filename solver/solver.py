@@ -9,13 +9,13 @@ import os
 import scipy.spatial as scipy
 import numpy as np
 
-def solve_set_covering(problem: ProblemModel, output_file):
+def solve_set_covering(problem: ProblemModel, output_file, epsilon = -1):
     node_count = len(problem.nodes)
     unit_count = len(problem.units)
     model = gp.Model('Fire_Surveillance_Model')
     risk_values = []
     if os.path.exists('./cachedvals'):
-        print('Reading simulationo results from cache')
+        print('Reading simulation results from cache')
         risk_values = np.fromfile('./cachedvals')
     else:
         print("Calculating values thru simulation...")
@@ -85,6 +85,16 @@ def solve_set_covering(problem: ProblemModel, output_file):
                     gp.quicksum(clique) <= 1
                 )
 
+    print('Adding minimum covering rate')
+    eps = model.addVar()
+    for i in range(node_count):
+        if problem.nodes[i].risk_status > 0:
+            model.addConstr(
+                eps <= gp.quicksum(covering_rates[i])
+            )
+
+    if epsilon != -1:
+        model.addConstr(eps >= epsilon)
     print('Setting objective')
     model.setObjective(
         gp.quicksum([risk_values[i] * risk_reduced[i] for i in range(node_count)]),
