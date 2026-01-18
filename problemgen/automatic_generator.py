@@ -72,4 +72,5 @@ def generate_instance(output_file, node_xy_count, width_height_kilometers, impor
 
 
 if __name__ == '__main__':
-    generate_instance('debug.xlsx', 100, 100, (1, 0.2), (15, 5), 8, 20, 0.55)
+    for node_count in [5, 10, 20, 50, 100, 200]:
+        generate_instance(f'problem_{node_count}x{node_count}.xlsx', node_count, node_count, (1, 0.2), (15, 5), 8, 20, 0.55)
