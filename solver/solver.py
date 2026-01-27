@@ -171,9 +171,10 @@ def solve_probabilistic(problem: ProblemModel, output_file):
             else:
                 log_chances[j] = math.log(1-detection_chances[j])
         exp = model.addVar(lb= float('-inf'),ub=0)
-        probability_not_catching = model.addVar()
-        breakpoints = [-4, -2, -0.8, -0.3, 0]
+        probability_not_catching = model.addVar(ub=1)
+        breakpoints = [-10, -2, -0.8, -0.5, -0.3, 0]
         y_points = [math.exp(p) for p in breakpoints]
+        y_points[0] = 0
         model.addConstr(sum([ci*dv for ci, dv in zip(log_chances, detection_dv)]) <= exp)
         model.addGenConstrPWL(exp, probability_not_catching, breakpoints, y_points)
         model.addConstr(
