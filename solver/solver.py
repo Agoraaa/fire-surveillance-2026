@@ -129,18 +129,18 @@ def solve_probabilistic(problem: ProblemModel, output_file):
     node_count = len(problem.nodes)
     unit_count = len(problem.units)
     model = gp.Model('Fire_Surveillance_Model')
-    risk_values = []
+    importances = []
     if os.path.exists('./cachedvals'):
         print('Reading simulation results from cache')
-        risk_values = np.fromfile('./cachedvals')
+        importances = np.fromfile('./cachedvals')
     else:
         print("Calculating values thru simulation...")
-        risk_values = simulator.calculate_burn_values(problem, 1.5, response_time=5)
-        max_risk = max(risk_values) 
-        risk_values = [r/max_risk for r in risk_values]
-        risk_values = np.array(risk_values)
-        risk_values = risk_values**2
-        risk_values.tofile('./cachedvals')
+        importances = simulator.calculate_burn_values(problem, 1.5, response_time=5)
+        max_importance = max(importances) 
+        importances = [r/max_importance for r in importances]
+        importances = np.array(importances)
+        importances = importances**2
+        importances.tofile('./cachedvals')
 
     print('Initializing vars')
     is_assigned = model.addVars(node_count, unit_count, vtype=GRB.BINARY)
@@ -160,6 +160,9 @@ def solve_probabilistic(problem: ProblemModel, output_file):
         for i, j in nb_nodes:
             covering_rates[i].append((problem.covering_rate(j, i, k), is_assigned[j,k]))
             covering_rates[j].append((problem.covering_rate(i, j, k), is_assigned[i,k]))
+        for i in range(node_count):
+            covering_rates[i].append((1, is_assigned[i,k]))
+
 
     for i in range(node_count):
         detection_chances = [t[0] for t in covering_rates[i]]
@@ -203,9 +206,18 @@ def solve_probabilistic(problem: ProblemModel, output_file):
             gp.quicksum([is_assigned[i, k] for i in range(node_count)]) <= problem.units[k].inventory
         )
     
+    # for toy
+    if 1:
+        model.addConstr(
+            is_assigned[0, 3] == 1 
+        )
+        model.addConstr(
+            is_assigned[24, 3] == 1 
+        )
+
     print('Setting objective')
     model.setObjective(
-        gp.quicksum([risk_values[i] * risk_reduced[i] for i in range(node_count)]),
+        gp.quicksum([importances[i] * risk_reduced[i] for i in range(node_count)]),
         GRB.MAXIMIZE
     )
     #model.setParam('MIPGap', 0.02)
@@ -218,7 +230,7 @@ def solve_probabilistic(problem: ProblemModel, output_file):
 
     node_results = []
     for i in range(node_count):
-        node_results.append([i+1, risk_reduced[i].X, problem.nodes[i].risk_status, risk_values[i], problem.nodes[i].x_coord, problem.nodes[i].y_coord])
+        node_results.append([i+1, risk_reduced[i].X, problem.nodes[i].risk_status, importances[i], problem.nodes[i].x_coord, problem.nodes[i].y_coord])
     node_df = pd.DataFrame(node_results, columns=['id', 'reduced_risk', 'total_risk', 'value_coeff', 'x_coord', 'y_coord'])
 
     unit_results = []
