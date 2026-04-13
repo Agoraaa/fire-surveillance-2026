@@ -61,10 +61,10 @@ def generate_instance(output_file, node_xy_count, width_height_kilometers, impor
             lines.append([id, x_coord, y_coord, risk_status, is_buildable, importance, slope, ymn])
     df1 = pd.DataFrame(lines, columns = ['id', 'x_coord', 'y_coord', 'risk_status', 'is_buildable', 'forest_rate', 'slope', 'ymn'])
     lines = []
-    lines.append(['UAV_type_A', 1, 100, 5, 6])
-    lines.append(['UAV_type_B', 0, 100, 5, 6])
-    lines.append(['Surv_Tower_Basic', 0, 100, 5, 6])
-    lines.append(['Augmented_Tower', 0, 100, 5, 6])
+    lines.append(['UAV_type_A', 5, 100, 6, 15])
+    lines.append(['UAV_type_B', 5, 100, 1, 5])
+    lines.append(['Surv_Tower_Basic', 2, 100, 10, 20])
+    lines.append(['Augmented_Tower', 2, 100, 3, 4])
     df2 = pd.DataFrame(lines, columns = ['observer_type', 'inventory', 'cost', 'min_vision', 'max_vision'])
     df3 = pd.DataFrame([['wind_speed', wind_speed]], columns=['parameter', 'value'])
     with pd.ExcelWriter(output_file) as writer:
@@ -99,7 +99,6 @@ if __name__ == '__main__':
         "medium": 0.55,
         "low": 0.5
     }
-    
     seeds = [2640, 45]
     for seed in seeds:
         for forest_density in forest_densities:
