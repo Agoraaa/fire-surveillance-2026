@@ -121,9 +121,15 @@ def solve_set_covering(problem: ProblemModel, output_file, epsilon = -1):
                 unit_results.append([problem.units[k].name, f'node_{i+1}', problem.nodes[i].x_coord, problem.nodes[i].y_coord])
     unit_df = pd.DataFrame(unit_results, columns=['unit_type', 'located_node_id', 'x_coord', 'y_coord'])
 
+    summary_df = pd.DataFrame([{
+        'solve_time_sec': model.Runtime,
+        'objective_value': model.ObjVal,
+    }])
+
     with pd.ExcelWriter(output_file, engine='xlsxwriter') as writer:
         unit_df.to_excel(writer, sheet_name="Built_Units", index=False)
         node_df.to_excel(writer, sheet_name="Nodes", index=False)
+        summary_df.to_excel(writer, sheet_name="Summary", index=False)
 
 def solve_probabilistic(problem: ProblemModel, output_file):
     node_count = len(problem.nodes)
@@ -240,6 +246,12 @@ def solve_probabilistic(problem: ProblemModel, output_file):
                 unit_results.append([problem.units[k].name, f'node_{i+1}', problem.nodes[i].x_coord, problem.nodes[i].y_coord])
     unit_df = pd.DataFrame(unit_results, columns=['unit_type', 'located_node_id', 'x_coord', 'y_coord'])
 
+    summary_df = pd.DataFrame([{
+        'solve_time_sec': model.Runtime,
+        'objective_value': model.ObjVal,
+    }])
+
     with pd.ExcelWriter(output_file, engine='xlsxwriter') as writer:
         unit_df.to_excel(writer, sheet_name="Built_Units", index=False)
         node_df.to_excel(writer, sheet_name="Nodes", index=False)
+        summary_df.to_excel(writer, sheet_name="Summary", index=False)
