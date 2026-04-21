@@ -4,6 +4,7 @@ from colorsys import rgb_to_hls, hls_to_rgb
 import numpy as np
 import math
 import pandas as pd
+import pathlib as pl
 from perlin_numpy import (
     generate_perlin_noise_2d, generate_fractal_noise_2d
 )
@@ -108,6 +109,9 @@ if __name__ == '__main__':
                         for risk in risks:
                             instance_name = f'{forest_density}F-{slope}S-{moisture}M-{wind}W-{risk}R-seed{seed}'
                             print(f'Generating {instance_name}')
+                            if pl.Path(f'test/{instance_name}.xlsx').exists():
+                                print(f"Skipping {instance_name}")
+                                continue
                             generate_instance(
                                 f'test/{instance_name}.xlsx',
                                 45,

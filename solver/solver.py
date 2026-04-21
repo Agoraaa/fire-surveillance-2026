@@ -226,7 +226,7 @@ def solve_probabilistic(problem: ProblemModel, output_file):
         gp.quicksum([importances[i] * risk_reduced[i] for i in range(node_count)]),
         GRB.MAXIMIZE
     )
-    #model.setParam('MIPGap', 0.02)
+    model.setParam('MIPGap', 0.02)
     print('Starting to solve... Good luck!')
     model.optimize()
 
