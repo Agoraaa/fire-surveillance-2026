@@ -14,18 +14,19 @@ def solve_set_covering(problem: ProblemModel, output_file, epsilon = -1):
     node_count = len(problem.nodes)
     unit_count = len(problem.units)
     model = gp.Model('Fire_Surveillance_Model')
+    cache_path = os.path.splitext(output_file)[0] + '_cachedvals'
     risk_values = []
-    if os.path.exists('./cachedvals'):
+    if os.path.exists(cache_path):
         print('Reading simulation results from cache')
-        risk_values = np.fromfile('./cachedvals')
+        risk_values = np.fromfile(cache_path)
     else:
         print("Calculating values thru simulation...")
         risk_values = simulator.calculate_burn_values(problem, 1.5, response_time=5)
-        max_risk = max(risk_values) 
+        max_risk = max(risk_values)
         risk_values = [r/max_risk for r in risk_values]
         risk_values = np.array(risk_values)
         risk_values = risk_values**2
-        risk_values.tofile('./cachedvals')
+        risk_values.tofile(cache_path)
 
     print('Initializing vars')
     is_assigned = model.addVars(node_count, unit_count, vtype=GRB.BINARY)
@@ -135,18 +136,19 @@ def solve_probabilistic(problem: ProblemModel, output_file):
     node_count = len(problem.nodes)
     unit_count = len(problem.units)
     model = gp.Model('Fire_Surveillance_Model')
+    cache_path = os.path.splitext(output_file)[0] + '_cachedvals'
     importances = []
-    if os.path.exists('./cachedvals'):
+    if os.path.exists(cache_path):
         print('Reading simulation results from cache')
-        importances = np.fromfile('./cachedvals')
+        importances = np.fromfile(cache_path)
     else:
         print("Calculating values thru simulation...")
         importances = simulator.calculate_burn_values(problem, 1.5, response_time=5)
-        max_importance = max(importances) 
+        max_importance = max(importances)
         importances = [r/max_importance for r in importances]
         importances = np.array(importances)
         importances = importances**2
-        importances.tofile('./cachedvals')
+        importances.tofile(cache_path)
 
     print('Initializing vars')
     is_assigned = model.addVars(node_count, unit_count, vtype=GRB.BINARY)
