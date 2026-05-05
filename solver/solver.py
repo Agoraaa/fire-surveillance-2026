@@ -9,6 +9,7 @@ import os
 import scipy.spatial as scipy
 import numpy as np
 import math
+import time
 
 def solve_set_covering(problem: ProblemModel, output_file, epsilon = -1):
     node_count = len(problem.nodes)
@@ -16,12 +17,15 @@ def solve_set_covering(problem: ProblemModel, output_file, epsilon = -1):
     model = gp.Model('Fire_Surveillance_Model')
     cache_path = os.path.splitext(output_file)[0] + '_cachedvals'
     risk_values = []
+    simulation_time_sec = 0
     if os.path.exists(cache_path):
         print('Reading simulation results from cache')
         risk_values = np.fromfile(cache_path)
     else:
         print("Calculating values thru simulation...")
+        sim_start = time.time()
         risk_values = simulator.calculate_burn_values(problem, 1.5, response_time=5)
+        simulation_time_sec = time.time() - sim_start
         max_risk = max(risk_values)
         risk_values = [r/max_risk for r in risk_values]
         risk_values = np.array(risk_values)
@@ -124,6 +128,7 @@ def solve_set_covering(problem: ProblemModel, output_file, epsilon = -1):
 
     summary_df = pd.DataFrame([{
         'solve_time_sec': model.Runtime,
+        'simulation_time_sec': simulation_time_sec,
         'objective_value': model.ObjVal,
     }])
 
@@ -138,12 +143,15 @@ def solve_probabilistic(problem: ProblemModel, output_file):
     model = gp.Model('Fire_Surveillance_Model')
     cache_path = os.path.splitext(output_file)[0] + '_cachedvals'
     importances = []
+    simulation_time_sec = 0
     if os.path.exists(cache_path):
         print('Reading simulation results from cache')
         importances = np.fromfile(cache_path)
     else:
         print("Calculating values thru simulation...")
+        sim_start = time.time()
         importances = simulator.calculate_burn_values(problem, 1.5, response_time=5)
+        simulation_time_sec = time.time() - sim_start
         max_importance = max(importances)
         importances = [r/max_importance for r in importances]
         importances = np.array(importances)
@@ -250,6 +258,7 @@ def solve_probabilistic(problem: ProblemModel, output_file):
 
     summary_df = pd.DataFrame([{
         'solve_time_sec': model.Runtime,
+        'simulation_time_sec': simulation_time_sec,
         'objective_value': model.ObjVal,
     }])
 
