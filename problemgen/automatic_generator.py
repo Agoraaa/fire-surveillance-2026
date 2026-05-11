@@ -43,7 +43,13 @@ def generate_risk_map(risk_density = 0.5, width_height = 100, seed=None):
     risk_map = risk_map**(1/3)
     return risk_map, is_hidden
 
-def generate_instance(output_file, node_xy_count, width_height_kilometers, importance_mean_std, ymn_mean_std, slope_mean_std, wind_speed, risk_density, seed=None):
+UNIT_INVENTORIES = {
+    "low":  {'UAV_type_A': 2, 'UAV_type_B': 2, 'Surv_Tower_Basic': 1, 'Augmented_Tower': 1},
+    "mid":  {'UAV_type_A': 3, 'UAV_type_B': 3, 'Surv_Tower_Basic': 1, 'Augmented_Tower': 1},
+    "high": {'UAV_type_A': 5, 'UAV_type_B': 5, 'Surv_Tower_Basic': 2, 'Augmented_Tower': 2},
+}
+
+def generate_instance(output_file, node_xy_count, width_height_kilometers, importance_mean_std, ymn_mean_std, slope_mean_std, wind_speed, risk_density, unit_level="high", seed=None):
     importances = _generate_noise(node_xy_count, importance_mean_std[0], importance_mean_std[1], seed=seed)
     ymns = _generate_noise(node_xy_count, ymn_mean_std[0], ymn_mean_std[1], seed=seed)
     slopes = abs(_generate_noise(node_xy_count, slope_mean_std[0], slope_mean_std[1], seed=seed))
@@ -61,11 +67,12 @@ def generate_instance(output_file, node_xy_count, width_height_kilometers, impor
             is_buildable = 'buildable'
             lines.append([id, x_coord, y_coord, risk_status, is_buildable, importance, slope, ymn])
     df1 = pd.DataFrame(lines, columns = ['id', 'x_coord', 'y_coord', 'risk_status', 'is_buildable', 'forest_rate', 'slope', 'ymn'])
+    inv = UNIT_INVENTORIES[unit_level]
     lines = []
-    lines.append(['UAV_type_A', 5, 100, 6, 15])
-    lines.append(['UAV_type_B', 5, 100, 1, 5])
-    lines.append(['Surv_Tower_Basic', 2, 100, 10, 20])
-    lines.append(['Augmented_Tower', 2, 100, 3, 4])
+    lines.append(['UAV_type_A', inv['UAV_type_A'], 100, 6, 15])
+    lines.append(['UAV_type_B', inv['UAV_type_B'], 100, 1, 5])
+    lines.append(['Surv_Tower_Basic', inv['Surv_Tower_Basic'], 100, 10, 20])
+    lines.append(['Augmented_Tower', inv['Augmented_Tower'], 100, 3, 4])
     df2 = pd.DataFrame(lines, columns = ['observer_type', 'inventory', 'cost', 'min_vision', 'max_vision'])
     df3 = pd.DataFrame([['wind_speed', wind_speed]], columns=['parameter', 'value'])
     with pd.ExcelWriter(output_file) as writer:
@@ -100,6 +107,7 @@ if __name__ == '__main__':
         "medium": 0.55,
         "low": 0.5
     }
+    unit_levels = ["low", "mid", "high"]
     seeds = [2640, 45]
     for seed in seeds:
         for forest_density in forest_densities:
@@ -107,19 +115,22 @@ if __name__ == '__main__':
                 for moisture in moistures:
                     for wind in winds:
                         for risk in risks:
-                            instance_name = f'{forest_density}F-{slope}S-{moisture}M-{wind}W-{risk}R-seed{seed}'
-                            print(f'Generating {instance_name}')
-                            if pl.Path(f'test/{instance_name}.xlsx').exists():
-                                print(f"Skipping {instance_name}")
-                                continue
-                            generate_instance(
-                                f'test/{instance_name}.xlsx',
-                                45,
-                                45,
-                                forest_densities[forest_density],
-                                moistures[moisture],
-                                slopes[slope],
-                                winds[wind],
-                                risks[risk],
-                                seed=seed
-                            )
+                            for unit_level in unit_levels:
+                                instance_name = f'{forest_density}F-{slope}S-{moisture}M-{wind}W-{risk}R-{unit_level}U-seed{seed}'
+                                print(f'Generating {instance_name}')
+                                old_name = f'{forest_density}F-{slope}S-{moisture}M-{wind}W-{risk}R-seed{seed}'
+                                if pl.Path(f'test/{instance_name}.xlsx').exists() or (unit_level == "high" and pl.Path(f'test/{old_name}.xlsx').exists()):
+                                    print(f"Skipping {instance_name}")
+                                    continue
+                                generate_instance(
+                                    f'test/{instance_name}.xlsx',
+                                    45,
+                                    45,
+                                    forest_densities[forest_density],
+                                    moistures[moisture],
+                                    slopes[slope],
+                                    winds[wind],
+                                    risks[risk],
+                                    unit_level=unit_level,
+                                    seed=seed
+                                )
