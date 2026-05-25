@@ -223,7 +223,7 @@ def solve_probabilistic(problem: ProblemModel, output_file):
         )
     
     # for toy
-    if 1:
+    if 0:
         model.addConstr(
             is_assigned[0, 3] == 1 
         )

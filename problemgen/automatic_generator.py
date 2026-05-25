@@ -55,11 +55,11 @@ def generate_instance(output_file, node_xy_count, width_height_kilometers, impor
     slopes = abs(_generate_noise(node_xy_count, slope_mean_std[0], slope_mean_std[1], seed=seed))
     risk_statuses, _ = generate_risk_map(risk_density, node_xy_count, seed=seed)
     lines = []
-    for i in range(width_height_kilometers):
-        for j in range(width_height_kilometers):
-            id = 1 + (i*width_height_kilometers) + j
-            x_coord = (i/width_height_kilometers) * width_height_kilometers
-            y_coord = (j/width_height_kilometers) * width_height_kilometers
+    for i in range(node_xy_count):
+        for j in range(node_xy_count):
+            id = 1 + (i*node_xy_count) + j
+            x_coord = (i/node_xy_count) * width_height_kilometers
+            y_coord = (j/node_xy_count) * width_height_kilometers
             importance = importances[i][j]
             ymn = ymns[i][j]
             slope = slopes[i][j]
@@ -124,8 +124,8 @@ if __name__ == '__main__':
                                     continue
                                 generate_instance(
                                     f'test/{instance_name}.xlsx',
-                                    45,
-                                    45,
+                                    40,
+                                    100,
                                     forest_densities[forest_density],
                                     moistures[moisture],
                                     slopes[slope],
