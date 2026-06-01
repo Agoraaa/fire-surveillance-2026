@@ -150,13 +150,14 @@ def solve_probabilistic(problem: ProblemModel, output_file):
     else:
         print("Calculating values thru simulation...")
         sim_start = time.time()
-        importances = simulator.calculate_burn_values(problem, 1.5, response_time=5)
+        importances = simulator.calculate_burn_values(problem, 5, response_time=5)
         simulation_time_sec = time.time() - sim_start
         max_importance = max(importances)
         importances = [r/max_importance for r in importances]
         importances = np.array(importances)
         importances = importances**2
         importances.tofile(cache_path)
+        print(f'Simulation calculated in {time.time() - sim_start} seconds')
 
     print('Initializing vars')
     is_assigned = model.addVars(node_count, unit_count, vtype=GRB.BINARY)

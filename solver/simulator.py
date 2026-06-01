@@ -2,6 +2,21 @@ from model import *
 import math
 import heapq
 from heapq import heappush, heappop
+import multiprocessing as mp
+
+_worker_problem = None
+_worker_neighbors = None
+
+def _init_worker(problem, neighbors):
+    global _worker_problem, _worker_neighbors
+    _worker_problem = problem
+    _worker_neighbors = neighbors
+
+def _worker_burn_value(args):
+    node_id, wind_direction, neighbor_cut_threshold, response_time = args
+    return calculate_burn_value(node_id, wind_direction, _worker_problem,
+                                neighbor_cut_threshold, response_time=response_time,
+                                neighbors=_worker_neighbors)
 def calculate_burn_value(start_node_id, wind_direction_rads, problem: ProblemModel, neighbor_cut_threshold, response_time = 10, neighbors = None, wind_speed_kmh = 30):
     if neighbors is None:
         neighbors = _create_nb_list(neighbor_cut_threshold, problem)
@@ -39,26 +54,27 @@ def calculate_burn_value(start_node_id, wind_direction_rads, problem: ProblemMod
                 heappush(pq, (reach_time, spread_node_id))
     return sum(forests_burned)/len(forests_burned)
 
-def calculate_burn_values(problem: ProblemModel, neighbor_cut_threshold, response_time = 2):
+def calculate_burn_values(problem: ProblemModel, neighbor_cut_threshold, response_time=2, n_workers=None):
     neighbors = _create_nb_list(neighbor_cut_threshold, problem)
     wind_count = 5
-    wind_up = math.tau
-    wind_step = (wind_up-0)/wind_count
-    node_results = [[] for _ in range(len(problem.nodes))]
-    for i in range(wind_count):
-        print(f"### WIND {i} ###")
-        wind_direction = 0 + wind_step*i
-        for node_id in range(len(problem.nodes)):
-            if node_id % 1000 == 0:
-                print(f'Node {node_id}')
-            node_results[node_id].append(calculate_burn_value(node_id, wind_direction, problem, 
-            neighbor_cut_threshold, response_time=10, neighbors=neighbors, wind_speed_kmh=problem.wind_speed))
-    res = []
-    for node_id in range(len(problem.nodes)):
-        res.append(
-            sum(node_results[node_id])/len(node_results[node_id])
-        )
-    return res
+    wind_step = math.tau / wind_count
+    wind_directions = [wind_step * i for i in range(wind_count)]
+    n_nodes = len(problem.nodes)
+
+    tasks = [
+        (node_id, wind_dir, neighbor_cut_threshold, response_time)
+        for wind_dir in wind_directions
+        for node_id in range(n_nodes)
+    ]
+
+    with mp.Pool(n_workers, initializer=_init_worker, initargs=(problem, neighbors)) as pool:
+        results = pool.map(_worker_burn_value, tasks)
+
+    node_results = [[] for _ in range(n_nodes)]
+    for i, val in enumerate(results):
+        node_results[i % n_nodes].append(val)
+
+    return [sum(node_results[nid]) / len(node_results[nid]) for nid in range(n_nodes)]
 
 def _create_nb_list(neighbor_cut_threshold, problem: ProblemModel):
     neighbors = {}
