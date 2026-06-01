@@ -124,7 +124,7 @@ if __name__ == '__main__':
                                     continue
                                 generate_instance(
                                     f'test/{instance_name}.xlsx',
-                                    40,
+                                    50,
                                     100,
                                     forest_densities[forest_density],
                                     moistures[moisture],

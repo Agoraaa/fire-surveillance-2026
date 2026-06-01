@@ -103,3 +103,79 @@ def simulate_fire_with_snapshots(fire_start_id, wind_speed, wind_direction_rads,
             reach_time = fire_start_time + dist/speed
             heappush(pq, (reach_time, spread_node_id))
     return snapshots
+
+
+if __name__ == "__main__":
+    import sys
+    import os
+    sys.path.insert(0, os.path.dirname(__file__))
+
+    PROBLEM_PATH = sys.argv[1]
+    print(f'SOLVING {PROBLEM_PATH}')
+    NEIGHBOR_THRESHOLD = 3.0
+    RESPONSE_TIME = 10
+    WIND_DIRECTION = 0.0  # radians
+
+    print(f"Loading problem: {PROBLEM_PATH}")
+    problem = ProblemModel.from_excel(PROBLEM_PATH)
+    print(f"  {len(problem.nodes)} nodes, wind_speed={problem.wind_speed} km/h")
+
+    print(f"\nBuilding neighbor list (threshold={NEIGHBOR_THRESHOLD})...")
+    neighbors = _create_nb_list(NEIGHBOR_THRESHOLD, problem)
+    avg_nb = sum(len(v) for v in neighbors.values()) / len(neighbors)
+    print(f"  avg neighbors per node: {avg_nb:.1f}")
+
+    # pick highest-risk node as fire start
+    start_node = max(problem.nodes, key=lambda n: n.forest_rate)
+    print(f"\nFire start: node {start_node.id}  forest_rate={start_node.forest_rate:.3f}  "
+          f"pos=({start_node.x_coord:.1f}, {start_node.y_coord:.1f})")
+
+    print(f"\nRunning simulate_burn_value (response_time={RESPONSE_TIME}, wind_dir={WIND_DIRECTION:.2f} rad)...")
+    wind_x = problem.wind_speed * math.cos(WIND_DIRECTION)
+    wind_y = problem.wind_speed * math.sin(WIND_DIRECTION)
+
+    # step through the BFS manually so we can print progress
+    pq = []
+    heappush(pq, (0.0, start_node.id))
+    is_visited = [False] * len(problem.nodes)
+    burned_nodes = []
+
+    while pq:
+        fire_time, node_id = heappop(pq)
+        if is_visited[node_id]:
+            continue
+        is_visited[node_id] = True
+        node = problem.nodes[node_id]
+        burned_nodes.append((fire_time, node_id, node.forest_rate))
+        print(f"  t={fire_time:6.3f}h  node={node_id:4d}  "
+              f"forest_rate={node.forest_rate:.3f}  ymn={node.ymn:.1f}  "
+              f"slope_coeff={node.slope_coeff:.3f}")
+
+        if node.ymn > 30:
+            continue
+        for spread_id, _ in neighbors[node_id].items():
+            spread = problem.nodes[spread_id]
+            dx = spread.x_coord - node.x_coord
+            dy = spread.y_coord - node.y_coord
+            mag = (dx**2 + dy**2) ** 0.5
+            dist = spread.dist_to(node)
+            wind_component = (wind_x * dx/mag + wind_y * dy/mag)
+            wind_coeff = 1 + (100/60) * max(10, wind_component)
+            speed_kmh = wind_coeff * node.slope_coeff * node.ymn_coeff * 0.06
+            reach_time = fire_time + dist / speed_kmh
+            if reach_time < RESPONSE_TIME:
+                heappush(pq, (reach_time, spread_id))
+
+    forest_rates = [fr for _, _, fr in burned_nodes]
+    avg_burn = sum(forest_rates) / len(forest_rates) if forest_rates else 0.0
+    print(f"\nSummary:")
+    print(f"  nodes burned: {len(burned_nodes)}")
+    print(f"  avg forest_rate burned: {avg_burn:.4f}")
+
+    print(f"\nRunning calculate_burn_values (5 wind dirs)...")
+    burn_values = calculate_burn_values(problem, NEIGHBOR_THRESHOLD, response_time=RESPONSE_TIME)
+    top5 = sorted(enumerate(burn_values), key=lambda x: -x[1])[:5]
+    print("Top 5 highest-risk nodes:")
+    for node_id, val in top5:
+        n = problem.nodes[node_id]
+        print(f"  node={node_id}  burn_value={val:.4f}  pos=({n.x_coord:.1f},{n.y_coord:.1f})")
