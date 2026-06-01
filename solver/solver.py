@@ -222,22 +222,13 @@ def solve_probabilistic(problem: ProblemModel, output_file):
         model.addConstr(
             gp.quicksum([is_assigned[i, k] for i in range(node_count)]) <= problem.units[k].inventory
         )
-    
-    # for toy
-    if 0:
-        model.addConstr(
-            is_assigned[0, 3] == 1 
-        )
-        model.addConstr(
-            is_assigned[24, 3] == 1 
-        )
 
     print('Setting objective')
     model.setObjective(
         gp.quicksum([importances[i] * risk_reduced[i] for i in range(node_count)]),
         GRB.MAXIMIZE
     )
-    model.setParam('MIPGap', 0.02)
+    model.setParam('TimeLimit', 600)
     print('Starting to solve... Good luck!')
     model.optimize()
 
@@ -258,7 +249,7 @@ def solve_probabilistic(problem: ProblemModel, output_file):
     unit_df = pd.DataFrame(unit_results, columns=['unit_type', 'located_node_id', 'x_coord', 'y_coord'])
 
     summary_df = pd.DataFrame([{
-        'solve_time_sec': model.Runtime,
+        'MIPGap': model.MIPGap,
         'simulation_time_sec': simulation_time_sec,
         'objective_value': model.ObjVal,
     }])
