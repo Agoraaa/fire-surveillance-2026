@@ -130,6 +130,7 @@ def solve_set_covering(problem: ProblemModel, output_file, epsilon = -1):
         'solve_time_sec': model.Runtime,
         'simulation_time_sec': simulation_time_sec,
         'objective_value': model.ObjVal,
+        'mip_gap': model.MIPGap,
     }])
 
     with pd.ExcelWriter(output_file, engine='xlsxwriter') as writer:
@@ -249,9 +250,10 @@ def solve_probabilistic(problem: ProblemModel, output_file):
     unit_df = pd.DataFrame(unit_results, columns=['unit_type', 'located_node_id', 'x_coord', 'y_coord'])
 
     summary_df = pd.DataFrame([{
-        'MIPGap': model.MIPGap,
+        'solve_time_sec': model.Runtime,
         'simulation_time_sec': simulation_time_sec,
         'objective_value': model.ObjVal,
+        'mip_gap': model.MIPGap,
     }])
 
     with pd.ExcelWriter(output_file, engine='xlsxwriter') as writer:
