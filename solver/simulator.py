@@ -54,7 +54,7 @@ def calculate_burn_value(start_node_id, wind_direction_rads, problem: ProblemMod
                 heappush(pq, (reach_time, spread_node_id))
     return sum(forests_burned)/len(forests_burned)
 
-def calculate_burn_values(problem: ProblemModel, neighbor_cut_threshold, response_time=2, n_workers=None):
+def calculate_burn_values(problem: ProblemModel, neighbor_cut_threshold, response_time=2, n_workers=None, parallel=True):
     neighbors = _create_nb_list(neighbor_cut_threshold, problem)
     wind_count = 5
     wind_step = math.tau / wind_count
@@ -67,8 +67,12 @@ def calculate_burn_values(problem: ProblemModel, neighbor_cut_threshold, respons
         for node_id in range(n_nodes)
     ]
 
-    with mp.Pool(n_workers, initializer=_init_worker, initargs=(problem, neighbors)) as pool:
-        results = pool.map(_worker_burn_value, tasks)
+    if parallel:
+        with mp.Pool(n_workers, initializer=_init_worker, initargs=(problem, neighbors)) as pool:
+            results = pool.map(_worker_burn_value, tasks)
+    else:
+        _init_worker(problem, neighbors)
+        results = [_worker_burn_value(task) for task in tasks]
 
     node_results = [[] for _ in range(n_nodes)]
     for i, val in enumerate(results):
