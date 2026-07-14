@@ -13,14 +13,13 @@ def _init_worker(problem, neighbors):
     _worker_neighbors = neighbors
 
 def _worker_burn_value(args):
-    node_id, wind_direction, neighbor_cut_threshold, response_time = args
+    node_id, wind_direction, neighbor_cut_threshold, response_time, wind_speed_kmh = args
     return calculate_burn_value(node_id, wind_direction, _worker_problem,
                                 neighbor_cut_threshold, response_time=response_time,
-                                neighbors=_worker_neighbors)
+                                neighbors=_worker_neighbors, wind_speed_kmh=wind_speed_kmh)
 def calculate_burn_value(start_node_id, wind_direction_rads, problem: ProblemModel, neighbor_cut_threshold, response_time = 10, neighbors = None, wind_speed_kmh = 30):
     if neighbors is None:
         neighbors = _create_nb_list(neighbor_cut_threshold, problem)
-    wind_speed_kmh = 30
     wind_x = wind_speed_kmh * math.cos(wind_direction_rads)
     wind_y = wind_speed_kmh * math.sin(wind_direction_rads)
     pq = []
@@ -54,7 +53,7 @@ def calculate_burn_value(start_node_id, wind_direction_rads, problem: ProblemMod
                 heappush(pq, (reach_time, spread_node_id))
     return sum(forests_burned)/len(forests_burned)
 
-def calculate_burn_values(problem: ProblemModel, neighbor_cut_threshold, response_time=2, n_workers=None, parallel=True):
+def calculate_burn_values(problem: ProblemModel, neighbor_cut_threshold, response_time=2, n_workers=None, parallel=False):
     neighbors = _create_nb_list(neighbor_cut_threshold, problem)
     wind_count = 5
     wind_step = math.tau / wind_count
@@ -62,7 +61,7 @@ def calculate_burn_values(problem: ProblemModel, neighbor_cut_threshold, respons
     n_nodes = len(problem.nodes)
 
     tasks = [
-        (node_id, wind_dir, neighbor_cut_threshold, response_time)
+        (node_id, wind_dir, neighbor_cut_threshold, response_time, problem.wind_speed)
         for wind_dir in wind_directions
         for node_id in range(n_nodes)
     ]
@@ -83,12 +82,11 @@ def calculate_burn_values(problem: ProblemModel, neighbor_cut_threshold, respons
 def _create_nb_list(neighbor_cut_threshold, problem: ProblemModel):
     neighbors = {}
     for node in problem.nodes:
-        neighbors[node.id] = {}
-        for nb_node in problem.nodes:
-            if node == nb_node:
-                continue
-            if node.dist_to(nb_node) <= neighbor_cut_threshold:
-                neighbors[node.id][nb_node.id] = True
+        others = sorted(
+            [nb for nb in problem.nodes if nb != node],
+            key=lambda nb: node.dist_to(nb)
+        )
+        neighbors[node.id] = {nb.id: True for nb in others[:20]}
     return neighbors
 
 def simulate_fire_with_snapshots(fire_start_id, wind_speed, wind_direction_rads, problem: ProblemModel, neighbor_cut_threshold, snapshot_times):
@@ -99,7 +97,6 @@ def simulate_fire_with_snapshots(fire_start_id, wind_speed, wind_direction_rads,
     pq = []
     heappush(pq, (0, start_node_id))
     is_visited = [False for _ in range(len(problem.nodes))]
-    # bfs time
     while len(pq):
         fire_start_time, node_id = heappop(pq)
         if fire_start_time >= snapshot_times[next_snapshot_ind]:
@@ -116,7 +113,6 @@ def simulate_fire_with_snapshots(fire_start_id, wind_speed, wind_direction_rads,
             dx, dy = (spread_node.x_coord-node.x_coord), (spread_node.y_coord-node.y_coord)
             dist = spread_node.dist_to(node)
             speed = node.fire_spread_rate
-            # there is no way this is right
             cos_similarity = (wind_x*dx + wind_y*dy)/(dist*wind_speed)
             speed += wind_speed* 0.1*cos_similarity
             speed = max(1, speed)

@@ -27,9 +27,7 @@ def solve_set_covering(problem: ProblemModel, output_file, epsilon = -1):
         risk_values = simulator.calculate_burn_values(problem, 1.5, response_time=5)
         simulation_time_sec = time.time() - sim_start
         max_risk = max(risk_values)
-        risk_values = [r/max_risk for r in risk_values]
-        risk_values = np.array(risk_values)
-        risk_values = risk_values**2
+        risk_values = np.array([r/max_risk for r in risk_values])
         risk_values.tofile(cache_path)
 
     print('Initializing vars')
@@ -131,6 +129,8 @@ def solve_set_covering(problem: ProblemModel, output_file, epsilon = -1):
         'simulation_time_sec': simulation_time_sec,
         'objective_value': model.ObjVal,
         'mip_gap': model.MIPGap,
+        'simulation_value_mean': float(np.mean(risk_values)),
+        'simulation_value_var': float(np.var(risk_values)),
     }])
 
     with pd.ExcelWriter(output_file, engine='xlsxwriter') as writer:
@@ -144,6 +144,7 @@ def solve_probabilistic(problem: ProblemModel, output_file):
     model = gp.Model('Fire_Surveillance_Model')
     cache_path = os.path.splitext(output_file)[0] + '_cachedvals'
     importances = []
+    raw_importances = None
     simulation_time_sec = 0
     if os.path.exists(cache_path):
         print('Reading simulation results from cache')
@@ -151,12 +152,10 @@ def solve_probabilistic(problem: ProblemModel, output_file):
     else:
         print("Calculating values thru simulation...")
         sim_start = time.time()
-        importances = simulator.calculate_burn_values(problem, 5, response_time=5)
+        raw_importances = np.array(simulator.calculate_burn_values(problem, 5, response_time=5))
         simulation_time_sec = time.time() - sim_start
-        max_importance = max(importances)
-        importances = [r/max_importance for r in importances]
-        importances = np.array(importances)
-        importances = importances**2
+        max_importance = raw_importances.max()
+        importances = (raw_importances / max_importance)
         importances.tofile(cache_path)
         print(f'Simulation calculated in {time.time() - sim_start} seconds')
 
@@ -230,6 +229,7 @@ def solve_probabilistic(problem: ProblemModel, output_file):
         GRB.MAXIMIZE
     )
     model.setParam('TimeLimit', 600)
+
     print('Starting to solve... Good luck!')
     model.optimize()
 
@@ -249,11 +249,32 @@ def solve_probabilistic(problem: ProblemModel, output_file):
                 unit_results.append([problem.units[k].name, f'node_{i+1}', problem.nodes[i].x_coord, problem.nodes[i].y_coord])
     unit_df = pd.DataFrame(unit_results, columns=['unit_type', 'located_node_id', 'x_coord', 'y_coord'])
 
+    risk_statuses = np.array([problem.nodes[i].risk_status for i in range(node_count)])
+    reduced_risks = np.array([risk_reduced[i].X for i in range(node_count)])
+
+    if raw_importances is not None:
+        max_importance = raw_importances.max()
+        unscaled = raw_importances
+        best_score_unscaled = float((unscaled * risk_statuses).sum())
+        objective_unscaled = float((unscaled * reduced_risks).sum())
+    else:
+        best_score_unscaled = None
+        objective_unscaled = None
+
     summary_df = pd.DataFrame([{
         'solve_time_sec': model.Runtime,
         'simulation_time_sec': simulation_time_sec,
         'objective_value': model.ObjVal,
         'mip_gap': model.MIPGap,
+        'simulation_value_mean': float(np.mean(importances)),
+        'simulation_value_var': float(np.var(importances)),
+        'simulation_value_mean_unscaled': float(np.mean(raw_importances)) if raw_importances is not None else None,
+        'simulation_value_var_unscaled': float(np.var(raw_importances)) if raw_importances is not None else None,
+        'best_score': float((importances * risk_statuses).sum()),
+        'best_score_unscaled': best_score_unscaled,
+        'objective_unscaled': objective_unscaled,
+        'objective_ratio': model.ObjVal / float((importances * risk_statuses).sum()),
+        'objective_ratio_unscaled': (objective_unscaled / best_score_unscaled) if best_score_unscaled else None,
     }])
 
     with pd.ExcelWriter(output_file, engine='xlsxwriter') as writer:
