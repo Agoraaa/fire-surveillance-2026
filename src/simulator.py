@@ -3,74 +3,91 @@ import math
 import heapq
 from heapq import heappush, heappop
 import multiprocessing as mp
+import random
+import numpy as np
 
-_worker_problem = None
+_worker_node_data = None
 _worker_neighbors = None
 
-def _init_worker(problem, neighbors):
-    global _worker_problem, _worker_neighbors
-    _worker_problem = problem
+def _node_data_from_problem(problem: ProblemModel):
+    return {
+        'forest_rate': np.array([n.forest_rate for n in problem.nodes]),
+        'ymn':         np.array([n.ymn for n in problem.nodes]),
+        'slope_coeff': np.array([n.slope_coeff for n in problem.nodes]),
+        'ymn_coeff':   np.array([n.ymn_coeff for n in problem.nodes]),
+        'x_coord':     np.array([n.x_coord for n in problem.nodes]),
+        'y_coord':     np.array([n.y_coord for n in problem.nodes]),
+    }
+
+def _init_worker(node_data, neighbors):
+    global _worker_node_data, _worker_neighbors
+    _worker_node_data = node_data
     _worker_neighbors = neighbors
 
 def _worker_burn_value(args):
-    node_id, wind_direction, neighbor_cut_threshold, response_time, wind_speed_kmh = args
-    return calculate_burn_value(node_id, wind_direction, _worker_problem,
-                                neighbor_cut_threshold, response_time=response_time,
-                                neighbors=_worker_neighbors, wind_speed_kmh=wind_speed_kmh)
-def calculate_burn_value(start_node_id, wind_direction_rads, problem: ProblemModel, neighbor_cut_threshold, response_time = 10, neighbors = None, wind_speed_kmh = 30):
-    if neighbors is None:
-        neighbors = _create_nb_list(neighbor_cut_threshold, problem)
+    node_id, wind_direction, response_time, wind_speed_kmh = args
+    return _calculate_burn_value_raw(node_id, wind_direction, _worker_node_data,
+                                     _worker_neighbors, response_time, wind_speed_kmh)
+
+def _calculate_burn_value_raw(start_node_id, wind_direction_rads, node_data, neighbors, response_time, wind_speed_kmh):
     wind_x = wind_speed_kmh * math.cos(wind_direction_rads)
     wind_y = wind_speed_kmh * math.sin(wind_direction_rads)
+    x = node_data['x_coord']
+    y = node_data['y_coord']
+    forest_rate = node_data['forest_rate']
+    ymn = node_data['ymn']
+    slope_coeff = node_data['slope_coeff']
+    ymn_coeff = node_data['ymn_coeff']
     pq = []
     heappush(pq, (0, start_node_id))
     forests_burned = []
-    is_visited = [False for _ in range(len(problem.nodes))]
-    # bfs time
-    while len(pq):
+    is_visited = [False] * len(forest_rate)
+    while pq:
         fire_start_time, node_id = heappop(pq)
-        node = problem.nodes[node_id]
-        
         if is_visited[node_id]:
             continue
         is_visited[node_id] = True
-        forests_burned.append(node.forest_rate)
-        if node.ymn > 30:
+        forests_burned.append(forest_rate[node_id])
+        if ymn[node_id] > 30:
             continue
-        for spread_node_id in neighbors[node_id].keys():
-            spread_node = problem.nodes[spread_node_id]
-            dx, dy = (spread_node.x_coord-node.x_coord), (spread_node.y_coord-node.y_coord)
-            mag = ((dx**2) + (dy**2))**(1/2)
-            dir_x, dir_y = dx/mag, dy/mag
-            dist = spread_node.dist_to(node)
-
-            wind_component_speed = (wind_x*dir_x + wind_y*dir_y)
+        for spread_node_id in neighbors[node_id]:
+            dx = x[spread_node_id] - x[node_id]
+            dy = y[spread_node_id] - y[node_id]
+            dist = math.sqrt(dx*dx + dy*dy)
+            dir_x, dir_y = dx/dist, dy/dist
+            wind_component_speed = wind_x*dir_x + wind_y*dir_y
             wind_coeff = 1 + (100/60)*max(10, wind_component_speed)
-            speed_ms = wind_coeff* node.slope_coeff * node.ymn_coeff
-            speed_kmh = speed_ms * 0.06
+            speed_kmh = wind_coeff * slope_coeff[node_id] * ymn_coeff[node_id] * 0.06
             reach_time = fire_start_time + dist/speed_kmh
             if reach_time < response_time:
                 heappush(pq, (reach_time, spread_node_id))
     return sum(forests_burned)/len(forests_burned)
 
-def calculate_burn_values(problem: ProblemModel, neighbor_cut_threshold, response_time=2, n_workers=None, parallel=False):
+def calculate_burn_value(start_node_id, wind_direction_rads, problem: ProblemModel, neighbor_cut_threshold, response_time=10, neighbors=None, wind_speed_kmh=30):
+    if neighbors is None:
+        neighbors = _create_nb_list(neighbor_cut_threshold, problem)
+    node_data = _node_data_from_problem(problem)
+    return _calculate_burn_value_raw(start_node_id, wind_direction_rads, node_data, neighbors, response_time, wind_speed_kmh)
+
+def calculate_burn_values(problem: ProblemModel, neighbor_cut_threshold, response_time=2, n_workers=None, parallel=True):
     neighbors = _create_nb_list(neighbor_cut_threshold, problem)
+    node_data = _node_data_from_problem(problem)
     wind_count = 5
     wind_step = math.tau / wind_count
     wind_directions = [wind_step * i for i in range(wind_count)]
     n_nodes = len(problem.nodes)
 
     tasks = [
-        (node_id, wind_dir, neighbor_cut_threshold, response_time, problem.wind_speed)
+        (node_id, wind_dir, response_time, problem.wind_speed)
         for wind_dir in wind_directions
         for node_id in range(n_nodes)
     ]
 
     if parallel:
-        with mp.Pool(n_workers, initializer=_init_worker, initargs=(problem, neighbors)) as pool:
+        with mp.Pool(n_workers, initializer=_init_worker, initargs=(node_data, neighbors)) as pool:
             results = pool.map(_worker_burn_value, tasks)
     else:
-        _init_worker(problem, neighbors)
+        _init_worker(node_data, neighbors)
         results = [_worker_burn_value(task) for task in tasks]
 
     node_results = [[] for _ in range(n_nodes)]
@@ -80,13 +97,14 @@ def calculate_burn_values(problem: ProblemModel, neighbor_cut_threshold, respons
     return [sum(node_results[nid]) / len(node_results[nid]) for nid in range(n_nodes)]
 
 def _create_nb_list(neighbor_cut_threshold, problem: ProblemModel):
+    import scipy.spatial as scipy
+    xys = np.array([(n.x_coord, n.y_coord) for n in problem.nodes])
+    tree = scipy.KDTree(xys)
+    _, indices = tree.query(xys, k=21)  # k=21: includes self
     neighbors = {}
-    for node in problem.nodes:
-        others = sorted(
-            [nb for nb in problem.nodes if nb != node],
-            key=lambda nb: node.dist_to(nb)
-        )
-        neighbors[node.id] = {nb.id: True for nb in others[:20]}
+    for i, node in enumerate(problem.nodes):
+        neighbor_ids = [problem.nodes[j].id for j in indices[i] if j != i]
+        neighbors[node.id] = neighbor_ids[:20]
     return neighbors
 
 def simulate_fire_with_snapshots(fire_start_id, wind_speed, wind_direction_rads, problem: ProblemModel, neighbor_cut_threshold, snapshot_times):
@@ -108,7 +126,7 @@ def simulate_fire_with_snapshots(fire_start_id, wind_speed, wind_direction_rads,
         if is_visited[node_id]:
             continue
         is_visited[node_id] = True
-        for spread_node_id in neighbors[node_id].keys():
+        for spread_node_id in neighbors[node_id]:
             spread_node = problem.nodes[spread_node_id]
             dx, dy = (spread_node.x_coord-node.x_coord), (spread_node.y_coord-node.y_coord)
             dist = spread_node.dist_to(node)
@@ -129,7 +147,7 @@ if __name__ == "__main__":
     PROBLEM_PATH = sys.argv[1]
     print(f'SOLVING {PROBLEM_PATH}')
     NEIGHBOR_THRESHOLD = 3.0
-    RESPONSE_TIME = 10
+    RESPONSE_TIME = 5
     WIND_DIRECTION = 0.0  # radians
 
     print(f"Loading problem: {PROBLEM_PATH}")
@@ -141,8 +159,9 @@ if __name__ == "__main__":
     avg_nb = sum(len(v) for v in neighbors.values()) / len(neighbors)
     print(f"  avg neighbors per node: {avg_nb:.1f}")
 
+    
     # pick highest-risk node as fire start
-    start_node = max(problem.nodes, key=lambda n: n.forest_rate)
+    start_node = random.choice(problem.nodes) #max(problem.nodes, key=lambda n: n.forest_rate)
     print(f"\nFire start: node {start_node.id}  forest_rate={start_node.forest_rate:.3f}  "
           f"pos=({start_node.x_coord:.1f}, {start_node.y_coord:.1f})")
 
@@ -169,7 +188,7 @@ if __name__ == "__main__":
 
         if node.ymn > 30:
             continue
-        for spread_id, _ in neighbors[node_id].items():
+        for spread_id in neighbors[node_id]:
             spread = problem.nodes[spread_id]
             dx = spread.x_coord - node.x_coord
             dy = spread.y_coord - node.y_coord

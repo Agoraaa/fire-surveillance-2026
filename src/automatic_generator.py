@@ -1,3 +1,4 @@
+import multiprocessing as mp
 import matplotlib.pyplot as plt
 import seaborn as sns
 from colorsys import rgb_to_hls, hls_to_rgb
@@ -46,14 +47,14 @@ def generate_risk_map(risk_density = 0.5, width_height = 100, seed=None):
 UNIT_INVENTORIES = {
     "low":  {'UAV_type_A': 2, 'UAV_type_B': 2, 'Surv_Tower_Basic': 1, 'Augmented_Tower': 1},
     "mid":  {'UAV_type_A': 3, 'UAV_type_B': 3, 'Surv_Tower_Basic': 1, 'Augmented_Tower': 1},
-    "high": {'UAV_type_A': 5, 'UAV_type_B': 5, 'Surv_Tower_Basic': 2, 'Augmented_Tower': 2},
+    "high": {'UAV_type_A': 5, 'UAV_type_B': 5, 'Surv_Tower_Basic': 3, 'Augmented_Tower': 0},
 }
 
 def generate_instance(output_file, node_xy_count, width_height_kilometers, importance_mean_std, ymn_mean_std, slope_mean_std, wind_speed, risk_density, unit_level="high", seed=None):
     importances = _generate_noise(node_xy_count, importance_mean_std[0], importance_mean_std[1], seed=seed)
-    ymns = _generate_noise(node_xy_count, ymn_mean_std[0], ymn_mean_std[1], seed=seed)
-    slopes = abs(_generate_noise(node_xy_count, slope_mean_std[0], slope_mean_std[1], seed=seed))
-    risk_statuses, _ = generate_risk_map(risk_density, node_xy_count, seed=seed)
+    ymns = _generate_noise(node_xy_count, ymn_mean_std[0], ymn_mean_std[1], seed=seed+1 if seed is not None else None)
+    slopes = abs(_generate_noise(node_xy_count, slope_mean_std[0], slope_mean_std[1], seed=seed+2 if seed is not None else None))
+    risk_statuses, _ = generate_risk_map(risk_density, node_xy_count, seed=seed+3 if seed is not None else None)
     lines = []
     for i in range(node_xy_count):
         for j in range(node_xy_count):
@@ -69,10 +70,10 @@ def generate_instance(output_file, node_xy_count, width_height_kilometers, impor
     df1 = pd.DataFrame(lines, columns = ['id', 'x_coord', 'y_coord', 'risk_status', 'is_buildable', 'forest_rate', 'slope', 'ymn'])
     inv = UNIT_INVENTORIES[unit_level]
     lines = []
-    lines.append(['UAV_type_A', inv['UAV_type_A'], 100, 6, 15])
-    lines.append(['UAV_type_B', inv['UAV_type_B'], 100, 1, 5])
-    lines.append(['Surv_Tower_Basic', inv['Surv_Tower_Basic'], 100, 10, 20])
-    lines.append(['Augmented_Tower', inv['Augmented_Tower'], 100, 3, 4])
+    lines.append(['Long-range UAV', 3, 100, 6, 15])
+    lines.append(['Short-range UAV', 3, 100, 1, 5])
+    lines.append(['Watchtower', 1, 100, 10, 20])
+    lines.append(['Sensor Tower', 1, 100, 3, 4])
     df2 = pd.DataFrame(lines, columns = ['observer_type', 'inventory', 'cost', 'min_vision', 'max_vision'])
     df3 = pd.DataFrame([['wind_speed', wind_speed]], columns=['parameter', 'value'])
     with pd.ExcelWriter(output_file) as writer:
@@ -81,56 +82,20 @@ def generate_instance(output_file, node_xy_count, width_height_kilometers, impor
         df3.to_excel(writer, sheet_name="Parameters", index=False)
 
 
+def _run(args):
+    output_file, node_xy_count, km, importance, ymn, slope, wind, risk, unit_level, seed = args
+    print(f'Generating {pl.Path(output_file).stem}')
+    generate_instance(output_file, node_xy_count, km, importance, ymn, slope, wind, risk, unit_level=unit_level, seed=seed)
+
 if __name__ == '__main__':
-    forest_densities = {
-        "low": (25, 15),
-        "mid": (55, 15),
-        "high": (85, 15)
-    }
-    slopes = {
-        "low": (3, 2),
-        "mid": (10, 5),
-        "high": (25, 10)
-    }
-    moistures = {
-        "critical": (5, 5),
-        "mid": (15, 5),
-        "high": (30, 10)
-    }
-    winds = {
-        "low": 10,
-        "mid": 20,
-        "high": 30
-    }
-    risks = {
-        "high": 0.6,
-        "medium": 0.55,
-        "low": 0.5
-    }
-    unit_levels = ["low", "mid", "high"]
-    seeds = [2640, 45]
-    for seed in seeds:
-        for forest_density in forest_densities:
-            for slope in slopes:
-                for moisture in moistures:
-                    for wind in winds:
-                        for risk in risks:
-                            for unit_level in unit_levels:
-                                instance_name = f'{forest_density}F-{slope}S-{moisture}M-{wind}W-{risk}R-{unit_level}U-seed{seed}'
-                                print(f'Generating {instance_name}')
-                                old_name = f'{forest_density}F-{slope}S-{moisture}M-{wind}W-{risk}R-seed{seed}'
-                                if pl.Path(f'test/{instance_name}.xlsx').exists() or (unit_level == "high" and pl.Path(f'test/{old_name}.xlsx').exists()):
-                                    print(f"Skipping {instance_name}")
-                                    continue
-                                generate_instance(
-                                    f'test/{instance_name}.xlsx',
-                                    50,
-                                    100,
-                                    forest_densities[forest_density],
-                                    moistures[moisture],
-                                    slopes[slope],
-                                    winds[wind],
-                                    risks[risk],
-                                    unit_level=unit_level,
-                                    seed=seed
-                                )
+    generate_instance(
+        'example_instance_2.xlsx',
+        node_xy_count=30,
+        width_height_kilometers=100,
+        importance_mean_std= (55, 15),
+        ymn_mean_std= (15, 5),
+        slope_mean_std= (10, 5),
+        wind_speed=30,
+        risk_density=0.6
+    )
+    

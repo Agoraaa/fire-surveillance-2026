@@ -138,7 +138,7 @@ def solve_set_covering(problem: ProblemModel, output_file, epsilon = -1):
         node_df.to_excel(writer, sheet_name="Nodes", index=False)
         summary_df.to_excel(writer, sheet_name="Summary", index=False)
 
-def solve_probabilistic(problem: ProblemModel, output_file):
+def solve_probabilistic(problem: ProblemModel, output_file, time_limit_sec=600):
     node_count = len(problem.nodes)
     unit_count = len(problem.units)
     model = gp.Model('Fire_Surveillance_Model')
@@ -150,7 +150,7 @@ def solve_probabilistic(problem: ProblemModel, output_file):
         print('Reading simulation results from cache')
         importances = np.fromfile(cache_path)
     else:
-        print("Calculating values thru simulation...")
+        print("Calculating values through simulation...")
         sim_start = time.time()
         raw_importances = np.array(simulator.calculate_burn_values(problem, 5, response_time=5))
         simulation_time_sec = time.time() - sim_start
@@ -202,16 +202,10 @@ def solve_probabilistic(problem: ProblemModel, output_file):
                 )
     
     
-    # redundant
-    if 0:
-        #print('C2')
-        for i in range(node_count):
-            node: Node = problem.nodes[i]
-            model.addConstr(
-                risk_reduced[i] <= node.risk_status
-            )
+    print('C2')
+    for i in range(node_count):
+        model.addConstr(risk_reduced[i] <= problem.nodes[i].risk_status)
 
-    # no budget consts
     print('C3')
     for i in range(node_count):
         model.addConstr(
@@ -223,12 +217,45 @@ def solve_probabilistic(problem: ProblemModel, output_file):
             gp.quicksum([is_assigned[i, k] for i in range(node_count)]) <= problem.units[k].inventory
         )
 
+    print('Warm start')
+    prev_assignments = {}
+    fname = os.path.basename(output_file)
+    out_dir = os.path.dirname(output_file)
+    unit_level_tag = next((f'-{l}U-' for l in ['low', 'mid', 'high'] if f'-{l}U-' in fname), None)
+    if unit_level_tag:
+        for candidate in sorted(os.listdir(out_dir)):
+            if candidate == fname or not candidate.endswith('_output.xlsx'):
+                continue
+            if unit_level_tag not in candidate:
+                continue
+            candidate_path = os.path.join(out_dir, candidate)
+            print(f'  Using {candidate} as warm start')
+            prev_df = pd.read_excel(candidate_path, sheet_name='Built_Units')
+            unit_name_to_k = {problem.units[k].name: k for k in range(unit_count)}
+            for _, row in prev_df.iterrows():
+                node_idx = int(row['located_node_id'].split('_')[1]) - 1
+                k = unit_name_to_k.get(row['unit_type'])
+                if k is not None:
+                    prev_assignments[(node_idx, k)] = 1
+            break
+
+    buildable = [i for i in range(node_count) if problem.nodes[i].is_buildable == 'buildable']
+    scores = [importances[i] * problem.nodes[i].risk_status for i in range(node_count)]
+    for k in range(unit_count):
+        already_assigned = {i for (i, kk) in prev_assignments if kk == k}
+        remaining_inventory = problem.units[k].inventory - len(already_assigned)
+        candidates = [i for i in buildable if i not in already_assigned]
+        greedy_nodes = set(sorted(candidates, key=lambda i: scores[i], reverse=True)[:max(0, remaining_inventory)])
+        for i in range(node_count):
+            is_assigned[i, k].Start = 1 if i in already_assigned | greedy_nodes else 0
+
     print('Setting objective')
     model.setObjective(
         gp.quicksum([importances[i] * risk_reduced[i] for i in range(node_count)]),
         GRB.MAXIMIZE
     )
-    model.setParam('TimeLimit', 600)
+    model.setParam('TimeLimit', time_limit_sec)
+    #model.setParam('MIPGap', 0.02)
 
     print('Starting to solve... Good luck!')
     model.optimize()
