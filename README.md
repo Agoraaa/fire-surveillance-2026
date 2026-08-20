@@ -1,6 +1,7 @@
 # Surveillance Optimization For Early Wildfire Detection
 
 ## Metadata
+- Paper: `<doi address>`
 - Author: [Mert Ali Yiğit](mailto:mertaliyigit06@gmail.com), [Erdi Daşdemir](mailto:edasdemir@hacettepe.edu.tr) (Corresponding), [Çağrı Koç](mailto:cagri.koc@hacettepe.edu.tr)
 - Weblink:
 [https://github.com/Agoraaa/fire-surveillance-2026](https://github.com/Agoraaa/fire-surveillance-2026)
