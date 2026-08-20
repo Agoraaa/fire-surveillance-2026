@@ -1,0 +1,6 @@
+gurobipy
+pandas
+scipy
+numpy
+openpyxl
+xlsxwriter
