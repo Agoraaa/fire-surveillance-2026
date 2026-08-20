@@ -1,7 +1,3 @@
-import multiprocessing as mp
-import matplotlib.pyplot as plt
-import seaborn as sns
-from colorsys import rgb_to_hls, hls_to_rgb
 import numpy as np
 import math
 import pandas as pd
@@ -44,12 +40,6 @@ def generate_risk_map(risk_density = 0.5, width_height = 100, seed=None):
     risk_map = risk_map**(1/3)
     return risk_map, is_hidden
 
-UNIT_INVENTORIES = {
-    "low":  {'UAV_type_A': 2, 'UAV_type_B': 2, 'Surv_Tower_Basic': 1, 'Augmented_Tower': 1},
-    "mid":  {'UAV_type_A': 3, 'UAV_type_B': 3, 'Surv_Tower_Basic': 1, 'Augmented_Tower': 1},
-    "high": {'UAV_type_A': 5, 'UAV_type_B': 5, 'Surv_Tower_Basic': 3, 'Augmented_Tower': 0},
-}
-
 def generate_instance(output_file, node_xy_count, width_height_kilometers, importance_mean_std, ymn_mean_std, slope_mean_std, wind_speed, risk_density, unit_level="high", seed=None):
     importances = _generate_noise(node_xy_count, importance_mean_std[0], importance_mean_std[1], seed=seed)
     ymns = _generate_noise(node_xy_count, ymn_mean_std[0], ymn_mean_std[1], seed=seed+1 if seed is not None else None)
@@ -89,7 +79,7 @@ def _run(args):
 
 if __name__ == '__main__':
     generate_instance(
-        'example_instance_2.xlsx',
+        'example_instance.xlsx',
         node_xy_count=30,
         width_height_kilometers=100,
         importance_mean_std= (55, 15),

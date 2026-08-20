@@ -1,6 +1,5 @@
 from model import *
 import math
-import heapq
 from heapq import heappush, heappop
 import multiprocessing as mp
 import random

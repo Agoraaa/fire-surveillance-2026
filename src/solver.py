@@ -2,7 +2,6 @@ import gurobipy as gp
 import sys
 from gurobipy import GRB
 from model import *
-import random
 import simulator
 import pandas as pd
 import os
